@@ -16,6 +16,8 @@ typedef struct ThrParameters{
     double Isp; //удельный импульс в секундах
     double OffF;
     double TailF;
+    double StartF;
+    int Start;
     double StopStartTime;
     double OnTime;
     double OffTime;
@@ -61,6 +63,8 @@ void initPSModel(struct SCType *S){
             thr->MaxThrottling = 1;
             thr->MinThrottling = 1;
             thr->TailF = 0;
+            thr->Start = 0;
+            thr->StartF= 0;
         }
         strcpy(propSystems[Nprop]->ScLabel, S->Label);
 
@@ -154,6 +158,17 @@ long PSModel(struct SCType *S){
                 }
                 thr->OnTime              += DTSIM;
                 thr->Main->PulseWidthCmd -= DTSIM;
+                if (thr->Start == 0){
+                    thr->Start = 1;
+                    thr->StartF = thr->OffF;
+                }
+                if (thr->TailF > 0){
+                    thr->OffTime += DTSIM;
+                    thr->TailF = -sqrt(2*thr->FSecOff*thr->OffTime) + thr->StartF;
+                    if (thr->TailF < 0) {
+                        thr->TailF = 0;
+                    }
+                }
                 F = sqrt(2*thr->FSecOn*thr->OnTime) + thr->TailF;
                 if (F > thr->Main->Fmax) {
                     F = thr->Main->Fmax;
@@ -168,8 +183,10 @@ long PSModel(struct SCType *S){
                 thr->OffF = F;
             }
             else if (thr->Incs > 0){
-                if(thr->IsOpen)
+                if(thr->IsOpen){
                     thr->OffTime = 0;
+                    thr->Start = 0;
+                }
                 thr->IsOpen = 0;
                 thr->OnTime = 0;
                 thr->OffTime += DTSIM;
